@@ -38,11 +38,10 @@ pip install torch torchvision
 
 ```bash
 cd GANs
-mkdir -p results
 python dcgan_commented.py
 ```
 
-CIFAR-10 downloads automatically on first run. Generated samples save to `GANs/results/` every 100 steps.
+CIFAR-10 downloads automatically on first run. The `results/` directory is created automatically. Generated samples save every 100 steps.
 
 ## Results
 
@@ -66,7 +65,6 @@ CIFAR-10 downloads automatically on first run. Generated samples save to `GANs/r
 
 ## ⚠️ Known Issues
 
-- No GPU/CUDA device selection — runs on CPU only. For GPU support, move tensors and models to `device = torch.device("cuda" if torch.cuda.is_available() else "cpu")`.
 - Training for only 25 epochs produces rough outputs. Increase epochs for better quality.
 - No checkpointing — training restarts from scratch each run.
 - No command-line arguments for hyperparameter tuning.

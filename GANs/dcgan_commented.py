@@ -1,7 +1,9 @@
 # Deep Convolutional GANs
+# Implementation of DCGAN (Radford et al., 2015) trained on CIFAR-10.
 
 # Importing the libraries
-from __future__ import print_function
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -12,17 +14,22 @@ import torchvision.transforms as transforms
 import torchvision.utils as vutils
 
 # Setting some hyperparameters
-batchSize = 64 # We set the size of the batch.
-imageSize = 64 # We set the size of the generated images (64x64).
+batchSize = 64  # We set the size of the batch.
+imageSize = 64  # We set the size of the generated images (64x64).
+
+# Detect GPU/CPU device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Creating the transformations
-transform = transforms.Compose([transforms.Resize(imageSize), transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),]) # We create a list of transformations (resizing, tensor conversion, normalization) to apply to the input images.
+transform = transforms.Compose([
+    transforms.Resize(imageSize),
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+])
 
-# Loading the dataset
-dataset = dset.CIFAR10(root = './data', download = True, transform = transform) # We download the training set in the ./data folder and we apply the previous transformations on each image.
-dataloader = torch.utils.data.DataLoader(dataset, batch_size = batchSize, shuffle = True, num_workers = 2) # We use dataLoader to get the images of the training set batch by batch.
 
-# Defining the weights_init function that takes as input a neural network m and that will initialize all its weights.
+# Defining the weights_init function that takes as input a neural network m
+# and that will initialize all its weights.
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
@@ -31,113 +38,153 @@ def weights_init(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
+
 # Defining the generator
 
-class G(nn.Module): # We introduce a class to define the generator.
+class G(nn.Module):
+    """Generator network: maps a latent vector (z=100) to a 3x64x64 image."""
 
-    def __init__(self): # We introduce the __init__() function that will define the architecture of the generator.
-        super(G, self).__init__() # We inherit from the nn.Module tools.
-        self.main = nn.Sequential( # We create a meta module of a neural network that will contain a sequence of modules (convolutions, full connections, etc.).
-            nn.ConvTranspose2d(100, 512, 4, 1, 0, bias = False), # We start with an inversed convolution.
-            nn.BatchNorm2d(512), # We normalize all the features along the dimension of the batch.
-            nn.ReLU(True), # We apply a ReLU rectification to break the linearity.
-            nn.ConvTranspose2d(512, 256, 4, 2, 1, bias = False), # We add another inversed convolution.
-            nn.BatchNorm2d(256), # We normalize again.
-            nn.ReLU(True), # We apply another ReLU.
-            nn.ConvTranspose2d(256, 128, 4, 2, 1, bias = False), # We add another inversed convolution.
-            nn.BatchNorm2d(128), # We normalize again.
-            nn.ReLU(True), # We apply another ReLU.
-            nn.ConvTranspose2d(128, 64, 4, 2, 1, bias = False), # We add another inversed convolution.
-            nn.BatchNorm2d(64), # We normalize again.
-            nn.ReLU(True), # We apply another ReLU.
-            nn.ConvTranspose2d(64, 3, 4, 2, 1, bias = False), # We add another inversed convolution.
-            nn.Tanh() # We apply a Tanh rectification to break the linearity and stay between -1 and +1.
+    def __init__(self):
+        super(G, self).__init__()
+        self.main = nn.Sequential(
+            nn.ConvTranspose2d(100, 512, 4, 1, 0, bias=False),
+            nn.BatchNorm2d(512),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(512, 256, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(256, 128, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(128, 64, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(64, 3, 4, 2, 1, bias=False),
+            nn.Tanh(),
         )
 
-    def forward(self, input): # We define the forward function that takes as argument an input that will be fed to the neural network, and that will return the output containing the generated images.
-        output = self.main(input) # We forward propagate the signal through the whole neural network of the generator defined by self.main.
-        return output # We return the output containing the generated images.
+    def forward(self, input):
+        return self.main(input)
 
-# Creating the generator
-netG = G() # We create the generator object.
-netG.apply(weights_init) # We initialize all the weights of its neural network.
 
 # Defining the discriminator
 
-class D(nn.Module): # We introduce a class to define the discriminator.
+class D(nn.Module):
+    """Discriminator network: classifies 3x64x64 images as real or fake."""
 
-    def __init__(self): # We introduce the __init__() function that will define the architecture of the discriminator.
-        super(D, self).__init__() # We inherit from the nn.Module tools.
-        self.main = nn.Sequential( # We create a meta module of a neural network that will contain a sequence of modules (convolutions, full connections, etc.).
-            nn.Conv2d(3, 64, 4, 2, 1, bias = False), # We start with a convolution.
-            nn.LeakyReLU(0.2, inplace = True), # We apply a LeakyReLU.
-            nn.Conv2d(64, 128, 4, 2, 1, bias = False), # We add another convolution.
-            nn.BatchNorm2d(128), # We normalize all the features along the dimension of the batch.
-            nn.LeakyReLU(0.2, inplace = True), # We apply another LeakyReLU.
-            nn.Conv2d(128, 256, 4, 2, 1, bias = False), # We add another convolution.
-            nn.BatchNorm2d(256), # We normalize again.
-            nn.LeakyReLU(0.2, inplace = True), # We apply another LeakyReLU.
-            nn.Conv2d(256, 512, 4, 2, 1, bias = False), # We add another convolution.
-            nn.BatchNorm2d(512), # We normalize again.
-            nn.LeakyReLU(0.2, inplace = True), # We apply another LeakyReLU.
-            nn.Conv2d(512, 1, 4, 1, 0, bias = False), # We add another convolution.
-            nn.Sigmoid() # We apply a Sigmoid rectification to break the linearity and stay between 0 and 1.
+    def __init__(self):
+        super(D, self).__init__()
+        self.main = nn.Sequential(
+            nn.Conv2d(3, 64, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(64, 128, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(128, 256, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(256, 512, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(512, 1, 4, 1, 0, bias=False),
+            nn.Sigmoid(),
         )
 
-    def forward(self, input): # We define the forward function that takes as argument an input that will be fed to the neural network, and that will return the output which will be a value between 0 and 1.
-        output = self.main(input) # We forward propagate the signal through the whole neural network of the discriminator defined by self.main.
-        return output.view(-1) # We return the output which will be a value between 0 and 1.
+    def forward(self, input):
+        output = self.main(input)
+        return output.view(-1)
 
-# Creating the discriminator
-netD = D() # We create the discriminator object.
-netD.apply(weights_init) # We initialize all the weights of its neural network.
 
-# Training the DCGANs
+def train():
+    """Main training loop for the DCGAN."""
 
-criterion = nn.BCELoss() # We create a criterion object that will measure the error between the prediction and the target.
-optimizerD = optim.Adam(netD.parameters(), lr = 0.0002, betas = (0.5, 0.999)) # We create the optimizer object of the discriminator.
-optimizerG = optim.Adam(netG.parameters(), lr = 0.0002, betas = (0.5, 0.999)) # We create the optimizer object of the generator.
+    # Resolve paths relative to this script's directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(script_dir, "data")
+    results_dir = os.path.join(script_dir, "results")
+    os.makedirs(results_dir, exist_ok=True)
 
-for epoch in range(25): # We iterate over 25 epochs.
+    # Loading the dataset
+    dataset = dset.CIFAR10(
+        root=data_dir, download=True, transform=transform,
+    )
+    dataloader = torch.utils.data.DataLoader(
+        dataset, batch_size=batchSize, shuffle=True, num_workers=2,
+    )
 
-    for i, data in enumerate(dataloader, 0): # We iterate over the images of the dataset.
-        
-        # 1st Step: Updating the weights of the neural network of the discriminator
+    # Creating the generator
+    netG = G().to(device)
+    netG.apply(weights_init)
 
-        netD.zero_grad() # We initialize to 0 the gradients of the discriminator with respect to the weights.
-        
-        # Training the discriminator with a real image of the dataset
-        real, _ = data # We get a real image of the dataset which will be used to train the discriminator.
-        input = real # We use the tensor directly (Variable wrapper is deprecated since PyTorch 0.4).
-        target = torch.ones(input.size()[0]) # We get the target.
-        output = netD(input) # We forward propagate this real image into the neural network of the discriminator to get the prediction (a value between 0 and 1).
-        errD_real = criterion(output, target) # We compute the loss between the predictions (output) and the target (equal to 1).
-        
-        # Training the discriminator with a fake image generated by the generator
-        noise = torch.randn(input.size()[0], 100, 1, 1) # We make a random input vector (noise) of the generator.
-        fake = netG(noise) # We forward propagate this random input vector into the neural network of the generator to get some fake generated images.
-        target = torch.zeros(input.size()[0]) # We get the target.
-        output = netD(fake.detach()) # We forward propagate the fake generated images into the neural network of the discriminator to get the prediction (a value between 0 and 1).
-        errD_fake = criterion(output, target) # We compute the loss between the prediction (output) and the target (equal to 0).
+    # Creating the discriminator
+    netD = D().to(device)
+    netD.apply(weights_init)
 
-        # Backpropagating the total error
-        errD = errD_real + errD_fake # We compute the total error of the discriminator.
-        errD.backward() # We backpropagate the loss error by computing the gradients of the total error with respect to the weights of the discriminator.
-        optimizerD.step() # We apply the optimizer to update the weights according to how much they are responsible for the loss error of the discriminator.
+    # Training the DCGANs
+    criterion = nn.BCELoss()
+    optimizerD = optim.Adam(netD.parameters(), lr=0.0002, betas=(0.5, 0.999))
+    optimizerG = optim.Adam(netG.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
-        # 2nd Step: Updating the weights of the neural network of the generator
+    for epoch in range(25):
 
-        netG.zero_grad() # We initialize to 0 the gradients of the generator with respect to the weights.
-        target = torch.ones(input.size()[0]) # We get the target.
-        output = netD(fake) # We forward propagate the fake generated images into the neural network of the discriminator to get the prediction (a value between 0 and 1).
-        errG = criterion(output, target) # We compute the loss between the prediction (output between 0 and 1) and the target (equal to 1).
-        errG.backward() # We backpropagate the loss error by computing the gradients of the total error with respect to the weights of the generator.
-        optimizerG.step() # We apply the optimizer to update the weights according to how much they are responsible for the loss error of the generator.
-        
-        # 3rd Step: Printing the losses and saving the real images and the generated images of the minibatch every 100 steps
+        for i, data in enumerate(dataloader, 0):
 
-        print('[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f' % (epoch, 25, i, len(dataloader), errD.item(), errG.item())) # We print the losses of the discriminator (Loss_D) and the generator (Loss_G).
-        if i % 100 == 0: # Every 100 steps:
-            vutils.save_image(real, '%s/real_samples.png' % "./results", normalize = True) # We save the real images of the minibatch.
-            fake = netG(noise) # We get our fake generated images.
-            vutils.save_image(fake.data, '%s/fake_samples_epoch_%03d.png' % ("./results", epoch), normalize = True) # We also save the fake generated images of the minibatch.
+            # 1st Step: Updating the weights of the discriminator
+
+            netD.zero_grad()
+
+            # Training the discriminator with a real image of the dataset
+            real, _ = data
+            real = real.to(device)
+            target = torch.ones(real.size(0), device=device)
+            output = netD(real)
+            errD_real = criterion(output, target)
+
+            # Training the discriminator with a fake image from the generator
+            noise = torch.randn(real.size(0), 100, 1, 1, device=device)
+            fake = netG(noise)
+            target = torch.zeros(real.size(0), device=device)
+            output = netD(fake.detach())
+            errD_fake = criterion(output, target)
+
+            # Backpropagating the total error
+            errD = errD_real + errD_fake
+            errD.backward()
+            optimizerD.step()
+
+            # 2nd Step: Updating the weights of the generator
+
+            netG.zero_grad()
+            target = torch.ones(real.size(0), device=device)
+            output = netD(fake)
+            errG = criterion(output, target)
+            errG.backward()
+            optimizerG.step()
+
+            # 3rd Step: Printing the losses and saving images every 100 steps
+
+            print(
+                '[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f'
+                % (epoch, 25, i, len(dataloader), errD.item(), errG.item())
+            )
+            if i % 100 == 0:
+                vutils.save_image(
+                    real,
+                    os.path.join(results_dir, 'real_samples.png'),
+                    normalize=True,
+                )
+                with torch.no_grad():
+                    netG.eval()
+                    fake_samples = netG(noise)
+                    netG.train()
+                vutils.save_image(
+                    fake_samples.data,
+                    os.path.join(results_dir, 'fake_samples_epoch_%03d.png' % epoch),
+                    normalize=True,
+                )
+
+    print("Training complete.")
+
+
+if __name__ == "__main__":
+    train()
