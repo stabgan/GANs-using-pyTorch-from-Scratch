@@ -1,42 +1,40 @@
 # 🎨 DCGAN from Scratch — PyTorch
 
-A clean, from-scratch implementation of **Deep Convolutional Generative Adversarial Networks (DCGAN)** using PyTorch, trained on CIFAR-10.
+A clean, from-scratch implementation of Deep Convolutional Generative Adversarial Networks (DCGAN) in modern PyTorch, trained on CIFAR-10.
 
-Based on the [original DCGAN paper](https://arxiv.org/abs/1511.06434) by Radford et al.
+## What It Does
 
-## How It Works
-
-A **Generator** learns to create realistic images from random noise, while a **Discriminator** learns to tell real images from fakes. They train adversarially — the generator gets better at fooling the discriminator, and the discriminator gets better at catching fakes.
+Trains a GAN to generate realistic images from random noise using the [DCGAN architecture](https://arxiv.org/abs/1511.06434) (Radford et al., 2015). A **Generator** creates fake images from a latent vector, while a **Discriminator** learns to distinguish real from fake. They train adversarially until the generator produces convincing outputs.
 
 ```
-Random Noise → [Generator] → Fake Image
-                                  ↓
-Real Image → [Discriminator] → Real or Fake?
+Random Noise (z=100) → [Generator] → Fake Image (3×64×64)
+                                           ↓
+Real Image (CIFAR-10) → [Discriminator] → Real or Fake?
 ```
 
 ## Architecture
 
 | Component     | Details                                              |
 |---------------|------------------------------------------------------|
-| Generator     | 5 transposed conv layers, BatchNorm, ReLU, Tanh      |
+| Generator     | 5 transposed conv layers, BatchNorm, ReLU, Tanh out  |
 | Discriminator | 5 conv layers, BatchNorm, LeakyReLU (0.2), Sigmoid   |
 | Latent dim    | 100                                                  |
-| Image size    | 64×64                                                |
-| Optimizer     | Adam (lr=0.0002, β1=0.5, β2=0.999)                  |
-| Loss          | Binary Cross-Entropy                                 |
+| Image size    | 64×64×3                                              |
+| Optimizer     | Adam (lr=0.0002, β₁=0.5, β₂=0.999)                 |
+| Loss          | Binary Cross-Entropy (BCELoss)                       |
 | Epochs        | 25                                                   |
 
-## Requirements
-
-- Python 3.6+
-- PyTorch
-- torchvision
+## Dependencies
 
 ```bash
 pip install torch torchvision
 ```
 
-## Usage
+- Python 3.7+
+- PyTorch ≥ 1.0
+- torchvision
+
+## How to Run
 
 ```bash
 cd GANs
@@ -44,7 +42,7 @@ mkdir -p results
 python dcgan_commented.py
 ```
 
-CIFAR-10 downloads automatically on first run. Generated samples are saved to `GANs/results/` every 100 training steps.
+CIFAR-10 downloads automatically on first run. Generated samples save to `GANs/results/` every 100 steps.
 
 ## Results
 
@@ -54,29 +52,35 @@ CIFAR-10 downloads automatically on first run. Generated samples are saved to `G
 
 **Generated samples** (epoch 24):
 
-![Generated Samples Epoch 24](GANs/results/fake_samples_epoch_024.png)
+![Generated Samples](GANs/results/fake_samples_epoch_024.png)
 
-The generator progressively learns to produce coherent image structures over 25 epochs of training.
+## 🛠 Tech Stack
 
-## Known Issues
+| Tool | Purpose |
+|------|---------|
+| 🐍 Python | Core language |
+| 🔥 PyTorch | Deep learning framework |
+| 🖼 torchvision | Dataset loading, image transforms, utilities |
+| 🧠 DCGAN | Generative adversarial network architecture |
+| 📊 CIFAR-10 | Training dataset (60k 32×32 color images) |
 
-> These are deprecation warnings from older PyTorch versions. The core logic is correct.
+## ⚠️ Known Issues
 
-- `transforms.Scale` → use `transforms.Resize` (deprecated since torchvision 0.2)
-- `Variable` wrapper → no longer needed (deprecated since PyTorch 0.4)
-- `tensor.data[0]` → use `tensor.item()` for scalar access
-- No CUDA/GPU support — runs on CPU only
+- No GPU/CUDA device selection — runs on CPU only. For GPU support, move tensors and models to `device = torch.device("cuda" if torch.cuda.is_available() else "cpu")`.
+- Training for only 25 epochs produces rough outputs. Increase epochs for better quality.
+- No checkpointing — training restarts from scratch each run.
+- No command-line arguments for hyperparameter tuning.
 
 ## Project Structure
 
 ```
 ├── GANs/
-│   ├── dcgan_commented.py    # Full DCGAN implementation (well-commented)
+│   ├── dcgan_commented.py    # Full DCGAN implementation
 │   └── results/              # Generated image samples per epoch
-├── LICENSE                   # MIT
+├── LICENSE
 └── README.md
 ```
 
 ## License
 
-MIT © 2018 [Kaustabh Ganguly](https://github.com/stabgan)
+MIT © [Kaustabh Ganguly](https://github.com/stabgan)
