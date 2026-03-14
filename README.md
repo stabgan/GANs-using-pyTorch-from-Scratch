@@ -1,37 +1,82 @@
-# GANs using pyTorch from Scratch
+# 🎨 DCGAN from Scratch — PyTorch
 
+A clean, from-scratch implementation of **Deep Convolutional Generative Adversarial Networks (DCGAN)** using PyTorch, trained on CIFAR-10.
 
-## Generative adversarial networks (GANs) are deep neural net architectures comprised of two nets, pitting one against the other (thus the “adversarial”).
+Based on the [original DCGAN paper](https://arxiv.org/abs/1511.06434) by Radford et al.
 
-## GANs were introduced in a paper by Ian Goodfellow and other researchers at the University of Montreal, including Yoshua Bengio, in 2014. Referring to GANs, Facebook’s AI research director Yann LeCun called adversarial training “the most interesting idea in the last 10 years in ML.”
+## How It Works
 
-GANs’ potential is huge, because they can learn to mimic any distribution of data. That is, GANs can be taught to create worlds eerily similar to our own in any domain: images, music, speech, prose.
+A **Generator** learns to create realistic images from random noise, while a **Discriminator** learns to tell real images from fakes. They train adversarially — the generator gets better at fooling the discriminator, and the discriminator gets better at catching fakes.
 
-One neural network, called the generator, generates new data instances, while the other, the discriminator, evaluates them for authenticity; i.e. the discriminator decides whether each instance of data it reviews belongs to the actual training dataset or not.
+```
+Random Noise → [Generator] → Fake Image
+                                  ↓
+Real Image → [Discriminator] → Real or Fake?
+```
 
-Let’s say we’re trying to do something more banal than mimic the Mona Lisa. We’re going to generate hand-written numerals like those found in the MNIST dataset, which is taken from the real world. The goal of the discriminator, when shown an instance from the true MNIST dataset, is to recognize them as authentic.
+## Architecture
 
-#### Meanwhile, the generator is creating new images that it passes to the discriminator. It does so in the hopes that they, too, will be deemed authentic, even though they are fake. The goal of the generator is to generate passable hand-written digits, to lie without being caught. The goal of the discriminator is to identify images coming from the generator as fake.
+| Component     | Details                                              |
+|---------------|------------------------------------------------------|
+| Generator     | 5 transposed conv layers, BatchNorm, ReLU, Tanh      |
+| Discriminator | 5 conv layers, BatchNorm, LeakyReLU (0.2), Sigmoid   |
+| Latent dim    | 100                                                  |
+| Image size    | 64×64                                                |
+| Optimizer     | Adam (lr=0.0002, β1=0.5, β2=0.999)                  |
+| Loss          | Binary Cross-Entropy                                 |
+| Epochs        | 25                                                   |
 
-## Here are the steps a GAN takes:
+## Requirements
 
-The generator takes in random numbers and returns an image.
-This generated image is fed into the discriminator alongside a stream of images taken from the actual dataset.
-The discriminator takes in both real and fake images and returns probabilities, a number between 0 and 1, with 1 representing a prediction of authenticity and 0 representing fake.
-So you have a double feedback loop:
+- Python 3.6+
+- PyTorch
+- torchvision
 
-The discriminator is in a feedback loop with the ground truth of the images, which we know.
-The generator is in a feedback loop with the discriminator.
+```bash
+pip install torch torchvision
+```
 
-In this project I used a special dataset containing many images and trained a GAN to generate images like them . Thus infusing Computation with creativity .
+## Usage
 
-real sample :
+```bash
+cd GANs
+mkdir -p results
+python dcgan_commented.py
+```
 
+CIFAR-10 downloads automatically on first run. Generated samples are saved to `GANs/results/` every 100 training steps.
 
-![](https://image.ibb.co/bJ7Wsn/real_samples.png)
+## Results
 
+**Real samples** (CIFAR-10):
 
-generated sample after 24th epoch :
+![Real Samples](GANs/results/real_samples.png)
 
-![](https://image.ibb.co/jMv6Q7/fake_samples_epoch_024.png)
+**Generated samples** (epoch 24):
 
+![Generated Samples Epoch 24](GANs/results/fake_samples_epoch_024.png)
+
+The generator progressively learns to produce coherent image structures over 25 epochs of training.
+
+## Known Issues
+
+> These are deprecation warnings from older PyTorch versions. The core logic is correct.
+
+- `transforms.Scale` → use `transforms.Resize` (deprecated since torchvision 0.2)
+- `Variable` wrapper → no longer needed (deprecated since PyTorch 0.4)
+- `tensor.data[0]` → use `tensor.item()` for scalar access
+- No CUDA/GPU support — runs on CPU only
+
+## Project Structure
+
+```
+├── GANs/
+│   ├── dcgan_commented.py    # Full DCGAN implementation (well-commented)
+│   └── results/              # Generated image samples per epoch
+├── LICENSE                   # MIT
+└── README.md
+```
+
+## License
+
+MIT © 2018 [Kaustabh Ganguly](https://github.com/stabgan)
